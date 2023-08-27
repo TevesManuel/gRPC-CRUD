@@ -1,0 +1,45 @@
+syntax = "proto3";
+package sqlcrud;
+
+service sqlcrud {
+    rpc Create (CreateRequest) returns (CreateResponse);
+    rpc Read   (ReadRequest)   returns (ReadResponse);
+    rpc Update (UpdateRequest) returns (UpdateResponse);
+    rpc Delete (DeleteRequest) returns (DeleteResponse);
+}
+
+message CreateRequest {
+    string username   = 1;
+    string email      = 2;
+}
+message CreateResponse {
+    bool   successful = 1;
+    int32  id         = 2;
+    string message    = 3;
+}
+message ReadRequest {
+    int32 id          = 1;
+}
+message ReadResponse {
+    bool   successful = 1;
+    int32  id         = 2;
+    string username   = 3;
+    string email      = 4;
+    string message    = 5;
+}
+message UpdateRequest {
+    int32  id         = 1;
+    string username   = 2;
+    string email      = 3;
+}
+message UpdateResponse {
+    bool   successful = 1;
+    string message    = 2;
+}
+message DeleteRequest {
+    int32  id         = 1;
+}
+message DeleteResponse {
+    bool   successful = 1;
+    string message    = 2;
+}
