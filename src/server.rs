@@ -21,7 +21,7 @@ const PATH_OF_LOGFILE : &str = "./logfile.txt";
 
 #[derive(Debug, Default)]
 pub struct CRUDService {}
-
+//Implementacion de los metodos del servicio sqlcrud
 #[tonic::async_trait]
 impl Sqlcrud for CRUDService
 {
@@ -51,7 +51,7 @@ impl Sqlcrud for CRUDService
                     return Ok(Response::new(reply));
                 },
             };
-        let response = match sqlx::query("INSERT INTO Users (username, email) VALUES ($1, $2) RETURNING id, username, email")
+        let response = match sqlx::query("INSERT INTO Users (username, email) VALUES ($1, $2) RETURNING id")
             .bind(req.username.clone().replace("\n", ""))
             .bind(req.email.clone().trim())
             .fetch_one(&pool)
