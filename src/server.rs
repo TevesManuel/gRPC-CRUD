@@ -16,11 +16,17 @@ pub mod sqlcrud
     tonic::include_proto!("sqlcrud");
 }
 
-const URL : &str = "postgres://public_user:1zamjSAP0BWJ@ep-icy-silence-09220265.us-east-2.aws.neon.tech/TestDB";
+const URL : &str = "postgres://postgres:abc123@localhost:5432/gRPC_CRUD_TEST";
+// const URL : &str = "postgres://public_user:1zamjSAP0BWJ@ep-icy-silence-09220265.us-east-2.aws.neon.tech/TestDB";
 const PATH_OF_LOGFILE : &str = "./logfile.txt";
+const MAX_CONNECTIONS: u32 = 1;
 
 #[derive(Debug, Default)]
-pub struct CRUDService {}
+pub struct CRUDService
+{
+    pub pool: Option<sqlx::postgres::PgPool>,
+}
+
 //Implementacion de los metodos del servicio sqlcrud
 #[tonic::async_trait]
 impl Sqlcrud for CRUDService
@@ -30,31 +36,16 @@ impl Sqlcrud for CRUDService
         request: Request<CreateRequest>,
     ) -> Result<Response<CreateResponse>, Status>
     {
+        println!("{}", self.pool.is_some());
         let mut message    : String = "OK".to_owned();
         let mut successful : bool   = true;
         println!("[i]Create request.\n{:?}", request);
         let req = request.into_inner();
 
-        let pool = match sqlx::postgres::PgPool::connect(URL)
-            .await
-            {
-                Ok(x) => x,
-                Err(err) => 
-                {
-                    println!("[!] Error to connect to the postgres database.\n{}", err);
-                    message = "Err to connect to database.".to_owned();
-                    let reply = CreateResponse {
-                        successful,
-                        id: 0,
-                        message,
-                    };
-                    return Ok(Response::new(reply));
-                },
-            };
         let response = match sqlx::query("INSERT INTO Users (username, email) VALUES ($1, $2) RETURNING id")
             .bind(req.username.clone().replace("\n", ""))
             .bind(req.email.clone().trim())
-            .fetch_one(&pool)
+            .fetch_one(self.pool.as_ref().unwrap())
             .await
             {
                 Ok(x) => x,
@@ -114,25 +105,6 @@ impl Sqlcrud for CRUDService
         let mut message   : String = "OK".to_owned();
         let mut successful : bool = true;
         let req = request.into_inner();
-        let pool = match sqlx::postgres::PgPool::connect(URL)
-            .await
-            {
-                Ok(x) => x,
-                Err(err) => 
-                {
-                    println!("[!] Error to connect to the postgres database.\n{}", err);
-                    message = "Err to connect to database.".to_owned();
-
-                    let reply = ReadResponse {
-                        successful: false,
-                        id: 0,
-                        username: "-".to_owned(),
-                        email: "-".to_owned(),
-                        message,
-                    };
-                    return Ok(Response::new(reply));
-                },
-            };
 
         let response = match sqlx::query("
             SELECT id, username, email
@@ -140,7 +112,7 @@ impl Sqlcrud for CRUDService
             WHERE id = $1;
             ")
         .bind(req.id.clone())
-        .fetch_one(&pool)
+        .fetch_one(self.pool.as_ref().unwrap())
         .await
         {
             Ok(x) => x,
@@ -156,7 +128,7 @@ impl Sqlcrud for CRUDService
                     },
                     None =>
                     {
-                        message = "The id does not exist.".to_owned();
+                        message = format!("The id {} does not exist.", req.id).to_owned();
                     }                        
                 };
                 let reply = ReadResponse {
@@ -206,22 +178,6 @@ impl Sqlcrud for CRUDService
         let mut message    : String = "OK".to_owned();
         let mut successful : bool = true;
         let req = request.into_inner();
-        let pool = match sqlx::postgres::PgPool::connect(URL)
-            .await
-            {
-                Ok(x) => x,
-                Err(err) => 
-                {
-                    println!("[!] Error to connect to the postgres database.\n{}", err);
-                    message = "Err to connect to database.".to_owned();
-
-                    let reply = UpdateResponse {
-                        successful: false,
-                        message,
-                    };
-                    return Ok(Response::new(reply));
-                },
-            };
 
         _ = match sqlx::query("
             SELECT 1
@@ -230,7 +186,7 @@ impl Sqlcrud for CRUDService
             LIMIT 1;
             ")
         .bind(req.id.clone())
-        .fetch_optional(&pool)
+        .fetch_optional(self.pool.as_ref().unwrap())
         .await
         {
             Ok(x) => {
@@ -265,7 +221,7 @@ impl Sqlcrud for CRUDService
         .bind(req.username.clone().replace("\n", ""))
         .bind(req.email.clone().trim())
         .bind(req.id.clone())
-        .execute(&pool)
+        .execute(self.pool.as_ref().unwrap())
         .await
         {
             Ok(x) => x,
@@ -326,22 +282,6 @@ impl Sqlcrud for CRUDService
         let mut message    : String = "OK".to_owned();
         let mut successful : bool = true;
         let req = request.into_inner();
-        let pool = match sqlx::postgres::PgPool::connect(URL)
-            .await
-            {
-                Ok(x) => x,
-                Err(err) => 
-                {
-                    println!("[!] Error to connect to the postgres database.\n{}", err);
-                    message = "Err to connect to database.".to_owned();
-
-                    let reply = DeleteResponse {
-                        successful: false,
-                        message,
-                    };
-                    return Ok(Response::new(reply));
-                },
-            };
 
         _ = match sqlx::query("
             SELECT 1
@@ -350,7 +290,7 @@ impl Sqlcrud for CRUDService
             LIMIT 1;
             ")
         .bind(req.id.clone())
-        .fetch_optional(&pool)
+        .fetch_optional(self.pool.as_ref().unwrap())
         .await
         {
             Ok(x) => {
@@ -382,7 +322,7 @@ impl Sqlcrud for CRUDService
             WHERE id = $1;
             ")
         .bind(req.id.clone())
-        .execute(&pool)
+        .execute(self.pool.as_ref().unwrap())
         .await
         {
             Ok(x) => x,
@@ -441,7 +381,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
 {
     let addr = "[::1]:50051".parse()?;
     println!("Listening on {}...", addr);
-    let testfield_service = CRUDService::default();
+    let pool = match sqlx::postgres::PgPoolOptions::new()
+               .max_connections(MAX_CONNECTIONS)
+               .connect(URL)
+               .await
+               {
+                   Ok(x) => x,
+                   Err(err) => 
+                   {
+                       panic!("[!] Error to connect to the postgres database.\n{}", err);
+                   },
+               };
+    // let pool = match sqlx::postgres::PgPool::connect(URL)
+    //         .await
+    //         {
+    //             Ok(x) => x,
+    //             Err(err) => 
+    //             {
+    //                 panic!("[!] Error to connect to the postgres database.\n{}", err);
+    //             },
+    //         };
+    let testfield_service = CRUDService{pool: Some(pool)};
     
     Server::builder()
         .add_service(SqlcrudServer::new(testfield_service))
