@@ -1,6 +1,6 @@
 #Rust
 /target
 ./Cargo.lock
-./logfile.txt
+/logfile.txt
 #IDEs
 ./vscode

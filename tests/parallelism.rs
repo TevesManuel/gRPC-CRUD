@@ -11,20 +11,24 @@ pub mod sqlcrud
     tonic::include_proto!("sqlcrud");
 }
 const NUM_OF_USERS : u32 = 5000;
+const ADDR : &str = "http://[::1]:50051";
 async fn parallelism_test_create() -> i32
 {
     let mut handles = vec![];
     let min_index = std::sync::Arc::new(std::sync::Mutex::new(i32::max_value()));
     let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(NUM_OF_USERS as usize)); // Limit concurrency to 4 tasks
-
+    let channel = tonic::transport::Channel::from_static(ADDR)
+        .connect()
+        .await.expect("[!] Error on create client channel.\n");
     for i in 0..NUM_OF_USERS
     {
         let min_index_clone = std::sync::Arc::clone(&min_index);
         let semaphore_clone = std::sync::Arc::clone(&semaphore);
-
+        let channel_clone   = channel.clone();
         let handle = tokio::spawn(async move{
             let _permit = semaphore_clone.acquire().await.unwrap();
-            let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on create client.\n");
+            let mut client = SqlcrudClient::new(channel_clone.clone());
+            //let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on create client.\n");
             let request = tonic::Request::new(
                 CreateRequest {
                     username: i.clone().to_string(),
@@ -54,11 +58,15 @@ async fn parallelism_test_create() -> i32
 async fn parallelism_test_read(min_index : i32)
 {
     let mut handles = vec![];
-
+    let channel = tonic::transport::Channel::from_static(ADDR)
+        .connect()
+        .await.expect("[!] Error on read client channel.\n");
     for i in 0..NUM_OF_USERS
     {
+        let channel_clone   = channel.clone();
         let handle = tokio::spawn(async move{
-            let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on read client.\n");
+            let mut client = SqlcrudClient::new(channel_clone.clone());
+            //let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on read client.\n");
             let id = (min_index as i32) + (i.clone() as i32);
             let request = tonic::Request::new(
                 ReadRequest {
@@ -82,11 +90,15 @@ async fn parallelism_test_read(min_index : i32)
 async fn parallelism_test_update(min_index : i32)
 {
     let mut handles = vec![];
-
+    let channel = tonic::transport::Channel::from_static(ADDR)
+        .connect()
+        .await.expect("[!] Error on update client channel.\n");
     for i in 0..NUM_OF_USERS
     {
+        let channel_clone   = channel.clone();
         let handle = tokio::spawn(async move{
-            let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on update client.\n");
+            let mut client = SqlcrudClient::new(channel_clone.clone());
+            //let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on update client.\n");
             let request = tonic::Request::new(
                 UpdateRequest {
                     id: ((min_index as i32) + (i.clone() as i32)),
@@ -112,10 +124,15 @@ async fn parallelism_test_delete(min_index : i32)
 {
     let mut handles = vec![];
 
+    let channel = tonic::transport::Channel::from_static(ADDR)
+        .connect()
+        .await.expect("[!] Error on delete client channel.\n");
     for i in 0..NUM_OF_USERS
     {
+        let channel_clone   = channel.clone();
         let handle = tokio::spawn(async move{
-            let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on delete client.\n");
+            let mut client = SqlcrudClient::new(channel_clone.clone());
+            //let mut client = SqlcrudClient::connect("http://[::1]:50051").await.expect("[!] Error on delete client.\n");
             let request = tonic::Request::new(
                 DeleteRequest {
                     id: (min_index + (i.clone() as i32)),

@@ -19,7 +19,7 @@ pub mod sqlcrud
 const URL : &str = "postgres://postgres:abc123@localhost:5432/gRPC_CRUD_TEST";
 // const URL : &str = "postgres://public_user:1zamjSAP0BWJ@ep-icy-silence-09220265.us-east-2.aws.neon.tech/TestDB";
 const PATH_OF_LOGFILE : &str = "./logfile.txt";
-const MAX_CONNECTIONS: u32 = 1;
+const MAX_CONNECTIONS: u32 = 8;
 
 #[derive(Debug, Default)]
 pub struct CRUDService
